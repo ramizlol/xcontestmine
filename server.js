@@ -6,15 +6,10 @@ const app = express();
 app.get("/flights", async (req, res) => {
   let browser;
   try {
-    console.log("Launching browser...");
+    console.log("Starting fresh session...");
     browser = await chromium.launch({
       headless: true,
-      args: [
-        "--no-sandbox", 
-        "--disable-setuid-sandbox", 
-        "--disable-dev-shm-usage", // Fixes "out of memory" on Render
-        "--disable-gpu"
-      ]
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
     });
 
     const context = await browser.newContext({
@@ -24,52 +19,45 @@ app.get("/flights", async (req, res) => {
     const page = await context.newPage();
     let capturedData = null;
 
-    // Listen for the background API response
+    // This listener catches the NEW key and data automatically
     page.on("response", async (response) => {
       const url = response.url();
-      if (url.includes("/api/data/")) {
+      // We look for the data call which contains the dynamic key
+      if (url.includes("/api/data/") && url.includes("filter[pilot]=84669")) {
         try {
           capturedData = await response.json();
-          console.log("Successfully captured API data!");
+          console.log("Captured data using fresh session key!");
         } catch (e) {
-          console.log("Found API URL but couldn't parse JSON");
+          console.log("Detected API call but failed to parse JSON.");
         }
       }
     });
 
-    console.log("Navigating to XContest...");
+    // Visit the pilot page (this triggers the generation of the key)
     await page.goto("https://www.xcontest.org/world/en/pilots/detail:ramizntoma", {
-      waitUntil: "domcontentloaded",
+      waitUntil: "networkidle", // Wait for all background API calls to finish
       timeout: 60000
     });
 
-    // Wait loop for the data to arrive
-    let attempts = 0;
-    while (!capturedData && attempts < 30) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      attempts++;
+    // Short buffer to ensure the listener finished parsing
+    if (!capturedData) {
+      await page.waitForTimeout(5000);
     }
 
     if (!capturedData) {
-      console.log("Failed to capture data within 15 seconds.");
-      return res.status(404).json({ error: "Timed out waiting for API data" });
+      return res.status(404).json({ error: "Could not capture API data. Site might be blocking the bot." });
     }
 
+    // Success! Return the fresh data
     res.json(capturedData);
 
   } catch (err) {
-    console.error("Scraper Error:", err.message);
+    console.error("Error:", err.message);
     res.status(500).json({ error: err.message });
   } finally {
-    if (browser) {
-      console.log("Closing browser...");
-      await browser.close();
-    }
+    if (browser) await browser.close();
   }
 });
 
-// IMPORTANT: This starts the server
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log(`Scraper service listening on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Scraper active on port ${PORT}`));
