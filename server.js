@@ -1,9 +1,20 @@
+const express = require("express");
+const { chromium } = require("playwright");
+
+const app = express();
+
 app.get("/flights", async (req, res) => {
   let browser;
   try {
+    console.log("Launching browser...");
     browser = await chromium.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+      args: [
+        "--no-sandbox", 
+        "--disable-setuid-sandbox", 
+        "--disable-dev-shm-usage", // Fixes "out of memory" on Render
+        "--disable-gpu"
+      ]
     });
 
     const context = await browser.newContext({
@@ -13,10 +24,10 @@ app.get("/flights", async (req, res) => {
     const page = await context.newPage();
     let capturedData = null;
 
-    // 1. Set up the listener BEFORE going to the page
+    // Listen for the background API response
     page.on("response", async (response) => {
       const url = response.url();
-      if (url.includes("/api/data/")) { // Double-check this string in Chrome DevTools
+      if (url.includes("/api/data/")) {
         try {
           capturedData = await response.json();
           console.log("Successfully captured API data!");
@@ -26,14 +37,13 @@ app.get("/flights", async (req, res) => {
       }
     });
 
-    // 2. Go to the page
+    console.log("Navigating to XContest...");
     await page.goto("https://www.xcontest.org/world/en/pilots/detail:ramizntoma", {
       waitUntil: "domcontentloaded",
       timeout: 60000
     });
 
-    // 3. Instead of a fixed timeout, wait for the data to actually exist
-    // We'll check every 500ms for up to 15 seconds
+    // Wait loop for the data to arrive
     let attempts = 0;
     while (!capturedData && attempts < 30) {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -41,14 +51,25 @@ app.get("/flights", async (req, res) => {
     }
 
     if (!capturedData) {
+      console.log("Failed to capture data within 15 seconds.");
       return res.status(404).json({ error: "Timed out waiting for API data" });
     }
 
     res.json(capturedData);
 
   } catch (err) {
+    console.error("Scraper Error:", err.message);
     res.status(500).json({ error: err.message });
   } finally {
-    if (browser) await browser.close();
+    if (browser) {
+      console.log("Closing browser...");
+      await browser.close();
+    }
   }
+});
+
+// IMPORTANT: This starts the server
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`Scraper service listening on port ${PORT}`);
 });
