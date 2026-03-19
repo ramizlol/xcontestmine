@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: xcontestmine
+    runtime: docker # This forces the switch
+    envVars:
+      - key: PORT
+        value: 10000
