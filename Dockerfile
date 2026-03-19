@@ -3,10 +3,10 @@ FROM mcr.microsoft.com/playwright:v1.58.2-jammy
 WORKDIR /usr/src/app
 
 # Copy package files
-COPY package.json ./
+COPY package*.json ./
 
-# Install dependencies with 'unsafe-perm' to bypass folder restrictions
-RUN npm install --unsafe-perm=true || npm install --no-package-lock
+# Standard install
+RUN npm install
 
 # Copy the rest of your files
 COPY . .
