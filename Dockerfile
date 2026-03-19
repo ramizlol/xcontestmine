@@ -1,18 +1,19 @@
 FROM mcr.microsoft.com/playwright:v1.58.2-jammy
 
+# Set the working directory
 WORKDIR /usr/src/app
 
-# Copy package files
+# Copy package.json first to cache layers
 COPY package*.json ./
 
-# Install dependencies 
+# Install dependencies
 RUN npm install
 
-# Copy your server.js and other files
+# Copy the rest of your code (server.js, etc.)
 COPY . .
 
-# Match Render's default port
+# Render's port
 EXPOSE 10000
 
-# Start command
+# Start the app
 CMD ["node", "server.js"]
