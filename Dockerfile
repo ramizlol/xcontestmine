@@ -1,19 +1,16 @@
 FROM mcr.microsoft.com/playwright:v1.58.2-jammy
 
-# Set the working directory
 WORKDIR /usr/src/app
 
-# Copy package.json first to cache layers
-COPY package*.json ./
+# Copy package files
+COPY package.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies with 'unsafe-perm' to bypass folder restrictions
+RUN npm install --unsafe-perm=true || npm install --no-package-lock
 
-# Copy the rest of your code (server.js, etc.)
+# Copy the rest of your files
 COPY . .
 
-# Render's port
 EXPOSE 10000
 
-# Start the app
 CMD ["node", "server.js"]
