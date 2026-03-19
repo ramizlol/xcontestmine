@@ -1,17 +1,20 @@
-# Use the official Playwright image which has all browsers & OS libs pre-installed
-FROM mcr.microsoft.com/playwright:v1.41.0-jammy
+# Use the official Playwright image (matches your version 1.40)
+FROM mcr.microsoft.com/playwright:v1.40.0-jammy
 
-# Set the working directory
-WORKDIR /app
+# Create app directory
+WORKDIR /usr/src/app
 
-# Copy dependency files
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies (Playwright is already in the image, so this just gets your app code ready)
+# Install dependencies (This will NOT run postinstall now)
 RUN npm install
 
-# Copy the rest of your application code
+# Copy the rest of your code
 COPY . .
 
-# The command to start your app (replace 'index.js' with your actual entry file)
-CMD ["node", "index.js"]
+# Expose the port Express uses (Render usually uses 10000)
+EXPOSE 10000
+
+# Start the server
+CMD ["node", "server.js"]
